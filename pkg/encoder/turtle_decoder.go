@@ -10,38 +10,46 @@ import (
 func DecodeTurtle(input string) ([]triple.Triple, map[string]string, error) {
 	var triples []triple.Triple
 	prefixes := make(map[string]string)
-
+	
 	scanner := bufio.NewScanner(strings.NewReader(input))
-
+	var statementBuilder strings.Builder
+	
 	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-
-		if line == "" || strings.HasPrefix(line, "#") {
+		line := scanner.Text()
+		trimmed := strings.TrimSpace(line)
+		
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
 			continue
 		}
-
-		if strings.HasPrefix(line, "@prefix") {
-			prefix, uri, err := parsePrefix(line)
+		
+		if strings.HasPrefix(trimmed, "@prefix") {
+			prefix, uri, err := parsePrefix(trimmed)
 			if err != nil {
 				return nil, nil, err
 			}
 			prefixes[prefix] = uri
 			continue
 		}
-
-		if strings.HasSuffix(line, ".") {
-			t, err := parseTurtleTriple(line, prefixes)
+		
+		statementBuilder.WriteString(" ")
+		statementBuilder.WriteString(line)
+		
+		if strings.HasSuffix(trimmed, ".") {
+			statement := statementBuilder.String()
+			statementBuilder.Reset()
+			
+			ts, err := parseTurtleStatement(statement, prefixes)
 			if err != nil {
 				return nil, nil, err
 			}
-			triples = append(triples, t)
+			triples = append(triples, ts...)
 		}
 	}
-
+	
 	if err := scanner.Err(); err != nil {
 		return nil, nil, err
 	}
-
+	
 	return triples, prefixes, nil
 }
 
@@ -68,30 +76,107 @@ func parsePrefix(line string) (string, string, error) {
 	return prefix, uri, nil
 }
 
-func parseTurtleTriple(line string, prefixes map[string]string) (triple.Triple, error) {
-	line = strings.TrimSuffix(line, ".")
-	line = strings.TrimSpace(line)
-
-	subject, rest, err := parseTurtleNode(line, prefixes)
+func parseTurtleStatement(statement string, prefixes map[string]string) ([]triple.Triple, error) {
+	statement = strings.TrimSpace(statement)
+	statement = strings.TrimSuffix(statement, ".")
+	statement = strings.TrimSpace(statement)
+	
+	var triples []triple.Triple
+	
+	subject, rest, err := parseTurtleNode(statement, prefixes)
 	if err != nil {
-		return triple.Triple{}, err
+		return nil, err
 	}
-
-	predicate, rest, err := parseTurtleNode(rest, prefixes)
-	if err != nil {
-		return triple.Triple{}, err
+	
+	predicateObjectPairs := splitBySemicolon(rest)
+	
+	for _, pair := range predicateObjectPairs {
+		pair = strings.TrimSpace(pair)
+		if pair == "" {
+			continue
+		}
+		
+		predicate, objectsStr, err := parseTurtleNode(pair, prefixes)
+		if err != nil {
+			return nil, err
+		}
+		
+		if pred, ok := predicate.(triple.IRI); ok && pred.Value == "a" {
+			predicate = triple.IRI{Value: rdfType}
+		}
+		
+		objects := splitByComma(objectsStr)
+		
+		for _, objStr := range objects {
+			objStr = strings.TrimSpace(objStr)
+			if objStr == "" {
+				continue
+			}
+			
+			object, _, err := parseTurtleNode(objStr, prefixes)
+			if err != nil {
+				return nil, err
+			}
+			
+			triples = append(triples, triple.Triple{
+				Subject:   subject,
+				Predicate: predicate,
+				Object:    object,
+			})
+		}
 	}
+	
+	return triples, nil
+}
 
-	object, _, err := parseTurtleNode(rest, prefixes)
-	if err != nil {
-		return triple.Triple{}, err
+func splitBySemicolon(s string) []string {
+	return splitByDelimiter(s, ';')
+}
+
+func splitByComma(s string) []string {
+	return splitByDelimiter(s, ',')
+}
+
+func splitByDelimiter(s string, delim rune) []string {
+	var parts []string
+	var current strings.Builder
+	inQuotes := false
+	inAngleBrackets := false
+	
+	for i, ch := range s {
+		switch ch {
+		case '"':
+			if i == 0 || s[i-1] != '\\' {
+				inQuotes = !inQuotes
+			}
+			current.WriteRune(ch)
+		case '<':
+			if !inQuotes {
+				inAngleBrackets = true
+			}
+			current.WriteRune(ch)
+		case '>':
+			if !inQuotes {
+				inAngleBrackets = false
+			}
+			current.WriteRune(ch)
+		case delim:
+			if !inQuotes && !inAngleBrackets {
+				parts = append(parts, current.String())
+				current.Reset()
+			} else {
+				current.WriteRune(ch)
+			}
+		default:
+			current.WriteRune(ch)
+		}
 	}
-
-	return triple.Triple{
-		Subject:   subject,
-		Predicate: predicate,
-		Object:    object,
-	}, nil
+	
+	if current.Len() > 0 {
+		parts = append(parts, current.String())
+	}
+	
+	return parts
 }
 
 func parseTurtleNode(s string, prefixes map[string]string) (triple.Node, string, error) {
@@ -172,6 +257,10 @@ func parseTurtleNode(s string, prefixes map[string]string) (triple.Node, string,
 	rest := ""
 	if len(parts) > 1 {
 		rest = parts[1]
+	}
+	
+	if prefixedName == "a" {
+		return triple.IRI{Value: "a"}, rest, nil
 	}
 
 	expanded := expandPrefix(prefixedName, prefixes)
