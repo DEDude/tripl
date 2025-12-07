@@ -18,9 +18,12 @@ tripl is a standalone RDF triple encoder/decoder that can be used as:
 - JSON-LD encoder (expanded and compact with @context)
 - JSON-LD decoder
 - Round-trip validation for all formats
+- CLI Phase 1: Create command with prefix support
 
 ### In Progress
 - CLI implementation
+  - Phase 2: Add compact/verbose output options
+  - Phase 3: Add format conversion commands
 
 ### Planned
 - File I/O handling
@@ -50,8 +53,23 @@ tripl/
 
 ### Standalone CLI
 ```bash
-tripl encode --format turtle input.nt
-tripl decode --format jsonld data.ttl
+# Create a triple with full URIs
+tripl create --subject http://example.org/note1 \
+             --predicate http://example.org/title \
+             --object "My Note"
+
+# Create with prefixes
+tripl create --prefix ex=http://example.org/ \
+             --subject ex:note1 \
+             --predicate ex:title \
+             --object "My Note" \
+             --format turtle
+
+# Output as JSON-LD
+tripl create --subject http://example.org/note1 \
+             --predicate http://example.org/title \
+             --object "My Note" \
+             --format jsonld
 ```
 
 ### As a Library
