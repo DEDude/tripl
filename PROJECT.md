@@ -19,10 +19,10 @@ tripl is a standalone RDF triple encoder/decoder that can be used as:
 - JSON-LD decoder
 - Round-trip validation for all formats
 - CLI Phase 1: Create command with prefix support
+- CLI Phase 2: Compact output flag
 
 ### In Progress
 - CLI implementation
-  - Phase 2: Add compact/verbose output options
   - Phase 3: Add format conversion commands
 
 ### Planned
@@ -70,6 +70,14 @@ tripl create --subject http://example.org/note1 \
              --predicate http://example.org/title \
              --object "My Note" \
              --format jsonld
+
+# Use compact format with @context
+tripl create --prefix ex=http://example.org/ \
+             --subject ex:note1 \
+             --predicate ex:title \
+             --object "My Note" \
+             --format jsonld \
+             --compact
 ```
 
 ### As a Library

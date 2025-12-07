@@ -42,6 +42,7 @@ func createCommand() {
 	language   := createFlags.String("language", "", "Language tag for literal (optional)")
 	datatype   := createFlags.String("datatype", "", "Datatype IRI for literal (optional)")
 	prefixFlag := createFlags.String("prefix", "", "Prefix definitions (format: prefix=uri, prefix2=uri2)")
+	compact    := createFlags.Bool("compact", false, "Use compact output format (for turtle and jsonld)") 
 
 	createFlags.Parse(os.Args[2:])
 
@@ -88,10 +89,17 @@ func createCommand() {
 		case "ntriples":
 			output = encoder.EncodeNTriple(t)
 		case "turtle":
-			output = encoder.EncodeTurtle(triples, prefixes)
+			if *compact {
+				output = encoder.EncodeTurtleCompact(triples, prefixes)
+			} else {
+				output = encoder.EncodeTurtle(triples, prefixes)
+			}
 		case "jsonld":
-			output, err = encoder.EncodeJSONLD(triples)
-			
+			if *compact {
+				output, err = encoder.EncodeJSONLDCompact(triples, prefixes)
+			} else {
+				output, err = encoder.EncodeJSONLD(triples)
+			}
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error encoding JSON-LD: %v\n", err)
 				os.Exit(1)
@@ -159,9 +167,11 @@ func printUsage() {
 	fmt.Println("  --language string      Language tag for literal")
 	fmt.Println("  --datatype string      Datatype IRI for literal")
 	fmt.Println("  --prefix string        Prefix definitions (format: ex=http://example.org/)")
+	fmt.Println("  --compact              Use compact output format (turtle: semicolons/commas, jsonld: @context)")
 	fmt.Println()
 	fmt.Println("Examples:")
 	fmt.Println("  tripl create --subject http://example.org/note1 --predicate http://example.org/title --object \"My Note\"")
 	fmt.Println("  tripl create --prefix ex=http://example.org/ --subject ex:note1 --predicate ex:title --object \"My Note\" --format turtle")
+	fmt.Println("  tripl create --prefix ex=http://example.org/ --subject ex:note1 --predicate ex:title --object \"My Note\" --format turtle --compact")
 }
 
