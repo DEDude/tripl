@@ -13,15 +13,16 @@ tripl is a standalone RDF triple encoder/decoder that can be used as:
 ### Completed
 - Core RDF data model (IRI, Literal, BlankNode, Triple)
 - N-Triples encoder/decoder with full test coverage
-- Turtle decoder with advanced syntax support (semicolons, commas, `a` shortcut)
-- Basic Turtle encoder
+- Turtle encoder (basic and compact with semicolons/commas/`a`)
+- Turtle decoder with advanced syntax support
+- JSON-LD encoder (expanded and compact with @context)
+- JSON-LD decoder
+- Round-trip validation for all formats
 
 ### In Progress
-- Compact Turtle encoder (using semicolons and commas for grouping)
+- CLI implementation
 
 ### Planned
-- JSON-LD encoder/decoder
-- CLI implementation
 - File I/O handling
 - Batch conversion support
 
@@ -29,8 +30,8 @@ tripl is a standalone RDF triple encoder/decoder that can be used as:
 
 - Encode RDF triples to multiple formats:
   - N-Triples (.nt) ✓
-  - Turtle (.ttl) ✓ (basic encoder, advanced decoder with semicolons/commas/`a`)
-  - JSON-LD (.jsonld) - planned
+  - Turtle (.ttl) ✓ (basic and compact encoders, advanced decoder)
+  - JSON-LD (.jsonld) ✓ (expanded and compact with @context)
 - Decode from these formats back to structured data
 - Usable as both CLI and Go library
 
