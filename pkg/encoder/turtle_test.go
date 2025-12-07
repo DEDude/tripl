@@ -1,8 +1,8 @@
 package encoder
 
 import (
-	"testing"
 	"github.com/DeDude/tripl/pkg/triple"
+	"testing"
 )
 
 func TestEncodeTurtle(t *testing.T) {
@@ -96,14 +96,14 @@ ex:note1 ex:title "Hello"@en .
 
 func TestDecodeTurtle(t *testing.T) {
 	tests := []struct {
-		name            string
-		input           string
-		expectedTriples []triple.Triple
+		name             string
+		input            string
+		expectedTriples  []triple.Triple
 		expectedPrefixes map[string]string
-		wantErr         bool
+		wantErr          bool
 	}{
 		{
-			name: "simple triple without prefixes",
+			name:  "simple triple without prefixes",
 			input: `<http://example.org/note1> <http://example.org/title> "My Note" .`,
 			expectedTriples: []triple.Triple{
 				{
@@ -439,7 +439,6 @@ ex:note2 ex:title "Second" .
 	}
 }
 
-
 func TestTurtleCompactRoundTrip(t *testing.T) {
 	originalTriples := []triple.Triple{
 		{
@@ -468,25 +467,25 @@ func TestTurtleCompactRoundTrip(t *testing.T) {
 			Object:    triple.Literal{Value: "Second Note"},
 		},
 	}
-	
+
 	prefixes := map[string]string{
 		"ex": "http://example.org/",
 	}
-	
+
 	// Encode to compact Turtle
 	encoded := EncodeTurtleCompact(originalTriples, prefixes)
-	
+
 	// Decode it back
 	decodedTriples, decodedPrefixes, err := DecodeTurtle(encoded)
 	if err != nil {
 		t.Fatalf("DecodeTurtle() error = %v", err)
 	}
-	
+
 	// Check we got the same number of triples
 	if len(decodedTriples) != len(originalTriples) {
 		t.Errorf("Round trip produced %d triples, want %d", len(decodedTriples), len(originalTriples))
 	}
-	
+
 	// Check each triple matches
 	for i, original := range originalTriples {
 		found := false
@@ -500,7 +499,7 @@ func TestTurtleCompactRoundTrip(t *testing.T) {
 			t.Errorf("Original triple %d not found in decoded triples: %+v", i, original)
 		}
 	}
-	
+
 	// Check prefixes
 	if decodedPrefixes["ex"] != prefixes["ex"] {
 		t.Errorf("Prefix 'ex' = %s, want %s", decodedPrefixes["ex"], prefixes["ex"])

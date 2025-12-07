@@ -2,8 +2,8 @@ package encoder
 
 import (
 	"encoding/json"
-	"testing"
 	"github.com/DeDude/tripl/pkg/triple"
+	"testing"
 )
 
 func TestEncodeJSONLD(t *testing.T) {
@@ -81,14 +81,14 @@ func TestEncodeJSONLD(t *testing.T) {
 				t.Errorf("EncodeJSONLD() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			
+
 			if !tt.wantErr {
 				// Verify it's valid JSON
 				var parsed []map[string]interface{}
 				if err := json.Unmarshal([]byte(result), &parsed); err != nil {
 					t.Errorf("EncodeJSONLD() produced invalid JSON: %v", err)
 				}
-				
+
 				// Verify we have the right number of subjects
 				if len(parsed) == 0 {
 					t.Error("EncodeJSONLD() produced empty result")
@@ -171,13 +171,13 @@ func TestDecodeJSONLD(t *testing.T) {
 				t.Errorf("DecodeJSONLD() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			
+
 			if !tt.wantErr {
 				if len(triples) != len(tt.expectedTriples) {
 					t.Errorf("DecodeJSONLD() got %d triples, want %d", len(triples), len(tt.expectedTriples))
 					return
 				}
-				
+
 				for i, expected := range tt.expectedTriples {
 					if !triplesEqual(triples[i], expected) {
 						t.Errorf("DecodeJSONLD() triple[%d] = %+v, want %+v", i, triples[i], expected)
@@ -211,24 +211,24 @@ func TestJSONLDRoundTrip(t *testing.T) {
 			Object:    triple.Literal{Value: "Second Note"},
 		},
 	}
-	
+
 	// Encode to JSON-LD
 	encoded, err := EncodeJSONLD(originalTriples)
 	if err != nil {
 		t.Fatalf("EncodeJSONLD() error = %v", err)
 	}
-	
+
 	// Decode it back
 	decodedTriples, err := DecodeJSONLD(encoded)
 	if err != nil {
 		t.Fatalf("DecodeJSONLD() error = %v", err)
 	}
-	
+
 	// Check we got the same number of triples
 	if len(decodedTriples) != len(originalTriples) {
 		t.Errorf("Round trip produced %d triples, want %d", len(decodedTriples), len(originalTriples))
 	}
-	
+
 	// Check each triple matches
 	for i, original := range originalTriples {
 		found := false
@@ -246,10 +246,10 @@ func TestJSONLDRoundTrip(t *testing.T) {
 
 func TestEncodeJSONLDCompact(t *testing.T) {
 	tests := []struct {
-		name     string
-		triples  []triple.Triple
-		context  map[string]string
-		wantErr  bool
+		name    string
+		triples []triple.Triple
+		context map[string]string
+		wantErr bool
 	}{
 		{
 			name: "single triple with context",
@@ -307,19 +307,19 @@ func TestEncodeJSONLDCompact(t *testing.T) {
 				t.Errorf("EncodeJSONLDCompact() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			
+
 			if !tt.wantErr {
 				// Verify it's valid JSON
 				var parsed map[string]interface{}
 				if err := json.Unmarshal([]byte(result), &parsed); err != nil {
 					t.Errorf("EncodeJSONLDCompact() produced invalid JSON: %v", err)
 				}
-				
+
 				// Verify @context exists
 				if _, ok := parsed["@context"]; !ok {
 					t.Error("EncodeJSONLDCompact() missing @context")
 				}
-				
+
 				// Verify @graph exists
 				if _, ok := parsed["@graph"]; !ok {
 					t.Error("EncodeJSONLDCompact() missing @graph")

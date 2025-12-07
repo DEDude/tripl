@@ -1,8 +1,8 @@
 package encoder
 
 import (
-	"testing"
 	"github.com/DeDude/tripl/pkg/triple"
+	"testing"
 )
 
 func TestEncodeNTriple(t *testing.T) {
@@ -141,8 +141,8 @@ func nodesEqual(a, b triple.Node) bool {
 		return ok && aNode.Value == bNode.Value
 	case triple.Literal:
 		bNode, ok := b.(triple.Literal)
-		return ok && aNode.Value == bNode.Value && 
-			aNode.Language == bNode.Language && 
+		return ok && aNode.Value == bNode.Value &&
+			aNode.Language == bNode.Language &&
 			aNode.Datatype == bNode.Datatype
 	case triple.BlankNode:
 		bNode, ok := b.(triple.BlankNode)

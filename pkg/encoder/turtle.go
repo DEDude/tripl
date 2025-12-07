@@ -2,8 +2,8 @@ package encoder
 
 import (
 	"fmt"
-	"strings"
 	"github.com/DeDude/tripl/pkg/triple"
+	"strings"
 )
 
 func EncodeTurtle(triples []triple.Triple, prefixes map[string]string) string {
@@ -73,7 +73,7 @@ func EncodeTurtleCompact(triples []triple.Triple, prefixes map[string]string) st
 		result.WriteString(fmt.Sprintf("@prefix %s: <%s> .\n", prefix, uri))
 	}
 
-	if len(prefixes) > 0{
+	if len(prefixes) > 0 {
 		result.WriteString("\n")
 	}
 
@@ -134,10 +134,10 @@ type predicateGroup struct {
 func groupTriples(triples []triple.Triple) []subjectGroup {
 	subjectMap := make(map[string]*subjectGroup)
 	var orderedSubjects []string
-	
+
 	for _, t := range triples {
 		subjectKey := nodeKey(t.Subject)
-		
+
 		if _, exists := subjectMap[subjectKey]; !exists {
 			subjectMap[subjectKey] = &subjectGroup{
 				subject:    t.Subject,
@@ -145,10 +145,10 @@ func groupTriples(triples []triple.Triple) []subjectGroup {
 			}
 			orderedSubjects = append(orderedSubjects, subjectKey)
 		}
-		
+
 		sg := subjectMap[subjectKey]
 		predicateKey := nodeKey(t.Predicate)
-		
+
 		var pg *predicateGroup
 		for i := range sg.predicates {
 			if nodeKey(sg.predicates[i].predicate) == predicateKey {
@@ -156,7 +156,7 @@ func groupTriples(triples []triple.Triple) []subjectGroup {
 				break
 			}
 		}
-		
+
 		if pg == nil {
 			sg.predicates = append(sg.predicates, predicateGroup{
 				predicate: t.Predicate,
@@ -164,15 +164,15 @@ func groupTriples(triples []triple.Triple) []subjectGroup {
 			})
 			pg = &sg.predicates[len(sg.predicates)-1]
 		}
-		
+
 		pg.objects = append(pg.objects, t.Object)
 	}
-	
+
 	var result []subjectGroup
 	for _, key := range orderedSubjects {
 		result = append(result, *subjectMap[key])
 	}
-	
+
 	return result
 }
 
@@ -188,4 +188,3 @@ func nodeKey(n triple.Node) string {
 		return ""
 	}
 }
-

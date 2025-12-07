@@ -1,9 +1,9 @@
 package encoder
 
 import (
-		"strings"
-		"encoding/json"
-		"github.com/DeDude/tripl/pkg/triple"
+	"encoding/json"
+	"github.com/DeDude/tripl/pkg/triple"
+	"strings"
 )
 
 func EncodeJSONLD(triples []triple.Triple) (string, error) {
@@ -16,7 +16,9 @@ func EncodeJSONLD(triples []triple.Triple) (string, error) {
 
 		subjectIRI, ok := group.subject.(triple.IRI)
 
-		if !ok {continue}
+		if !ok {
+			continue
+		}
 
 		obj["@id"] = subjectIRI.Value
 
@@ -25,7 +27,6 @@ func EncodeJSONLD(triples []triple.Triple) (string, error) {
 
 			for _, objNode := range objects {
 				value := nodeToJSONLD(objNode)
-
 				values = append(values, value)
 			}
 
@@ -35,7 +36,7 @@ func EncodeJSONLD(triples []triple.Triple) (string, error) {
 		result = append(result, obj)
 	}
 
-	bytes, err := json.MarshalIndent(result, "", " ")
+	bytes, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
 		return "", err
 	}
@@ -44,13 +45,12 @@ func EncodeJSONLD(triples []triple.Triple) (string, error) {
 }
 
 type subjectProperties struct {
-	subject triple.Node
+	subject    triple.Node
 	properties map[string][]triple.Node
 }
 
 func groupBySubject(triples []triple.Triple) []subjectProperties {
 	subjectMap := make(map[string]*subjectProperties)
-
 	var orderedKeys []string
 
 	for _, t := range triples {
@@ -58,23 +58,23 @@ func groupBySubject(triples []triple.Triple) []subjectProperties {
 
 		if _, exists := subjectMap[subjectKey]; !exists {
 			subjectMap[subjectKey] = &subjectProperties{
-				subject: t.Subject,
+				subject:    t.Subject,
 				properties: make(map[string][]triple.Node),
 			}
 			orderedKeys = append(orderedKeys, subjectKey)
 		}
 
 		sp := subjectMap[subjectKey]
-
 		predicateIRI, ok := t.Predicate.(triple.IRI)
 
-		if !ok {continue}
+		if !ok {
+			continue
+		}
 
 		sp.properties[predicateIRI.Value] = append(sp.properties[predicateIRI.Value], t.Object)
 	}
 
 	var result []subjectProperties
-
 	for _, key := range orderedKeys {
 		result = append(result, *subjectMap[key])
 	}
@@ -86,18 +86,18 @@ func nodeToJSONLD(n triple.Node) map[string]interface{} {
 	result := make(map[string]interface{})
 
 	switch node := n.(type) {
-		case triple.IRI:
-			result["@id"] = node.Value
-		case triple.Literal:
-			result["@value"] = node.Value
-			if node.Language != "" {
-				result["@language"] = node.Language
-			}
-			if node.Datatype != "" {
-				result["@type"] = node.Datatype
-			}
-		case triple.BlankNode:
-			result["@id"] = "_:" + node.Value
+	case triple.IRI:
+		result["@id"] = node.Value
+	case triple.Literal:
+		result["@value"] = node.Value
+		if node.Language != "" {
+			result["@language"] = node.Language
+		}
+		if node.Datatype != "" {
+			result["@type"] = node.Datatype
+		}
+	case triple.BlankNode:
+		result["@id"] = "_:" + node.Value
 	}
 
 	return result
@@ -113,7 +113,9 @@ func EncodeJSONLDCompact(triples []triple.Triple, context map[string]string) (st
 
 		subjectIRI, ok := group.subject.(triple.IRI)
 
-		if !ok {continue}
+		if !ok {
+			continue
+		}
 
 		obj["@id"] = shortenURI(subjectIRI.Value, context)
 
@@ -146,11 +148,10 @@ func EncodeJSONLDCompact(triples []triple.Triple, context map[string]string) (st
 
 	result := map[string]interface{}{
 		"@context": context,
-		"@graph": graph,
+		"@graph":   graph,
 	}
 
-	bytes, err := json.MarshalIndent(result, "", " ")
-
+	bytes, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
 		return "", err
 	}
@@ -170,21 +171,21 @@ func shortenURI(uri string, context map[string]string) string {
 
 func nodeToJSONLDCompact(n triple.Node, context map[string]string) interface{} {
 	switch node := n.(type) {
-		case triple.IRI:
-			shortened := shortenURI(node.Value, context)
-			return map[string]interface{}{"@id": shortened}
-		case triple.Literal:
-			if node.Language == "" && node.Datatype == "" {
-				return node.Value
-			}
-			result := map[string]interface{}{"@value": node.Value}
-			if node.Language != "" {
-				result["@language"] = node.Language
-			}
-			if node.Datatype != "" {
-				result["@type"] = node.Datatype
-			}
-			return result
+	case triple.IRI:
+		shortened := shortenURI(node.Value, context)
+		return map[string]interface{}{"@id": shortened}
+	case triple.Literal:
+		if node.Language == "" && node.Datatype == "" {
+			return node.Value
+		}
+		result := map[string]interface{}{"@value": node.Value}
+		if node.Language != "" {
+			result["@language"] = node.Language
+		}
+		if node.Datatype != "" {
+			result["@type"] = node.Datatype
+		}
+		return result
 	case triple.BlankNode:
 		return map[string]interface{}{"@id": "_:" + node.Value}
 	}

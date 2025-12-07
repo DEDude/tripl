@@ -6,9 +6,9 @@ import (
 )
 
 func EncodeNTriple(t triple.Triple) string {
-	subject   := formatNode(t.Subject)
+	subject := formatNode(t.Subject)
 	predicate := formatNode(t.Predicate)
-	object    := formatNode(t.Object)
+	object := formatNode(t.Object)
 	return fmt.Sprintf("%s %s %s .", subject, predicate, object)
 }
 

@@ -1,13 +1,13 @@
 package main
 
 import (
-		"flag"
-		"fmt"
-		"os"
-		"strings"
+	"flag"
+	"fmt"
+	"os"
+	"strings"
 
-		"github.com/DeDude/tripl/pkg/encoder"
-		"github.com/DeDude/tripl/pkg/triple"
+	"github.com/DeDude/tripl/pkg/encoder"
+	"github.com/DeDude/tripl/pkg/triple"
 )
 
 func main() {
@@ -34,15 +34,15 @@ func main() {
 func createCommand() {
 	createFlags := flag.NewFlagSet("create", flag.ExitOnError)
 
-	format     := createFlags.String("format", "turtle", "Output format: ntriples, turtle, jsonld")
-	subject    := createFlags.String("subject", "", "Subject IRI")
-	predicate  := createFlags.String("predicate", "", "Predicate IRI")
-	object     := createFlags.String("object", "", "Object value")
+	format := createFlags.String("format", "turtle", "Output format: ntriples, turtle, jsonld")
+	subject := createFlags.String("subject", "", "Subject IRI")
+	predicate := createFlags.String("predicate", "", "Predicate IRI")
+	object := createFlags.String("object", "", "Object value")
 	objectType := createFlags.String("object-type", "literal", "Object type: literal. iri, blank")
-	language   := createFlags.String("language", "", "Language tag for literal (optional)")
-	datatype   := createFlags.String("datatype", "", "Datatype IRI for literal (optional)")
+	language := createFlags.String("language", "", "Language tag for literal (optional)")
+	datatype := createFlags.String("datatype", "", "Datatype IRI for literal (optional)")
 	prefixFlag := createFlags.String("prefix", "", "Prefix definitions (format: prefix=uri, prefix2=uri2)")
-	compact    := createFlags.Bool("compact", false, "Use compact output format (for turtle and jsonld)") 
+	compact := createFlags.Bool("compact", false, "Use compact output format (for turtle and jsonld)")
 
 	createFlags.Parse(os.Args[2:])
 
@@ -52,61 +52,61 @@ func createCommand() {
 		os.Exit(1)
 	}
 
-	prefixes     := parsePrefixes(*prefixFlag)
-	subjectIRI   := expandURI(*subject, prefixes)
+	prefixes := parsePrefixes(*prefixFlag)
+	subjectIRI := expandURI(*subject, prefixes)
 	predicateIRI := expandURI(*predicate, prefixes)
 
 	t := triple.Triple{
-		Subject: triple.IRI{Value: subjectIRI},
+		Subject:   triple.IRI{Value: subjectIRI},
 		Predicate: triple.IRI{Value: predicateIRI},
 	}
 
 	switch *objectType {
-		case "literal":
-			lit := triple.Literal{Value: *object}
-			if *language != "" {
-				lit.Language = *language
-			}
-			if *datatype != "" {
-				lit.Datatype = expandURI(*datatype, prefixes)
-			}
-			t.Object = lit
-		case "iri":
-			t.Object = triple.IRI{Value: expandURI(*object, prefixes)}
-		case "blank":
-			t.Object = triple.BlankNode{Value: *object}
-		default:
-			fmt.Fprintf(os.Stderr, "Unknown object type: %s\n", *objectType)
-			os.Exit(1)
+	case "literal":
+		lit := triple.Literal{Value: *object}
+		if *language != "" {
+			lit.Language = *language
+		}
+		if *datatype != "" {
+			lit.Datatype = expandURI(*datatype, prefixes)
+		}
+		t.Object = lit
+	case "iri":
+		t.Object = triple.IRI{Value: expandURI(*object, prefixes)}
+	case "blank":
+		t.Object = triple.BlankNode{Value: *object}
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown object type: %s\n", *objectType)
+		os.Exit(1)
 	}
-	
+
 	triples := []triple.Triple{t}
 
 	var output string
 	var err error
-	
+
 	switch *format {
-		case "ntriples":
-			output = encoder.EncodeNTriple(t)
-		case "turtle":
-			if *compact {
-				output = encoder.EncodeTurtleCompact(triples, prefixes)
-			} else {
-				output = encoder.EncodeTurtle(triples, prefixes)
-			}
-		case "jsonld":
-			if *compact {
-				output, err = encoder.EncodeJSONLDCompact(triples, prefixes)
-			} else {
-				output, err = encoder.EncodeJSONLD(triples)
-			}
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error encoding JSON-LD: %v\n", err)
-				os.Exit(1)
-			}
-		default:
-			fmt.Fprintf(os.Stderr, "Unknown format: %s\n", *format)
+	case "ntriples":
+		output = encoder.EncodeNTriple(t)
+	case "turtle":
+		if *compact {
+			output = encoder.EncodeTurtleCompact(triples, prefixes)
+		} else {
+			output = encoder.EncodeTurtle(triples, prefixes)
+		}
+	case "jsonld":
+		if *compact {
+			output, err = encoder.EncodeJSONLDCompact(triples, prefixes)
+		} else {
+			output, err = encoder.EncodeJSONLD(triples)
+		}
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error encoding JSON-LD: %v\n", err)
 			os.Exit(1)
+		}
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown format: %s\n", *format)
+		os.Exit(1)
 	}
 
 	fmt.Print(output)

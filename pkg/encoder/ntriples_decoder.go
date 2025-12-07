@@ -2,8 +2,8 @@ package encoder
 
 import (
 	"errors"
-	"strings"
 	"github.com/DeDude/tripl/pkg/triple"
+	"strings"
 )
 
 func DecodeNTriple(line string) (triple.Triple, error) {
@@ -36,9 +36,9 @@ func DecodeNTriple(line string) (triple.Triple, error) {
 	}
 
 	return triple.Triple{
-		Subject: subject,
+		Subject:   subject,
 		Predicate: predicate,
-		Object: object,
+		Object:    object,
 	}, nil
 }
 
