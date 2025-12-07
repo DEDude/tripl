@@ -183,61 +183,23 @@ func parseTurtleNode(s string, prefixes map[string]string) (triple.Node, string,
 	s = strings.TrimSpace(s)
 
 	if strings.HasPrefix(s, "<") {
-		end := strings.Index(s, ">")
-		if end == -1 {
-			return nil, "", errors.New("unclosed IRI")
-		}
-		value := s[1:end]
-		rest := strings.TrimSpace(s[end+1:])
-		return triple.IRI{Value: value}, rest, nil
+		return parseIRI(s)
 	}
 
 	if strings.HasPrefix(s, "_:") {
-		parts := strings.SplitN(s[2:], " ", 2)
-		value := parts[0]
-		rest := ""
-
-		if len(parts) > 1 {
-			rest = parts[1]
-		}
-
-		return triple.BlankNode{Value: value}, rest, nil
+		return parseBlankNode(s)
 	}
 
 	if strings.HasPrefix(s, `"`) {
-		end := 1
-		for end < len(s) {
-			if s[end] == '"' && s[end-1] != '\\' {
-				break
-			}
-			end++
-		}
-		if end >= len(s) {
-			return nil, "", errors.New("unclosed literal")
+		lit, rest, err := parseLiteral(s)
+		if err != nil {
+			return nil, "", err
 		}
 
-		value := s[1:end]
-		rest := strings.TrimSpace(s[end+1:])
-		lit := triple.Literal{Value: value}
-
-		if strings.HasPrefix(rest, "@") {
-			parts := strings.SplitN(rest[1:], " ", 2)
-			lit.Language = parts[0]
-			if len(parts) > 1 {
-				rest = parts[1]
-			} else {
-				rest = ""
-			}
-		} else if strings.HasPrefix(rest, "^^") {
+		// Check for prefixed datatype (Turtle-specific)
+		if lit.Datatype == "" && strings.HasPrefix(rest, "^^") {
 			rest = rest[2:]
-			if strings.HasPrefix(rest, "<") {
-				end := strings.Index(rest, ">")
-				if end == -1 {
-					return nil, "", errors.New("unclosed datatype")
-				}
-				lit.Datatype = rest[1:end]
-				rest = strings.TrimSpace(rest[end+1:])
-			} else {
+			if !strings.HasPrefix(rest, "<") {
 				parts := strings.SplitN(rest, " ", 2)
 				datatypePrefix := parts[0]
 				lit.Datatype = expandPrefix(datatypePrefix, prefixes)
@@ -252,6 +214,7 @@ func parseTurtleNode(s string, prefixes map[string]string) (triple.Node, string,
 		return lit, rest, nil
 	}
 
+	// Handle prefixed names (Turtle-specific)
 	parts := strings.SplitN(s, " ", 2)
 	prefixedName := parts[0]
 	rest := ""

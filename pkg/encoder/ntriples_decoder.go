@@ -46,60 +46,15 @@ func parseNode(s string) (triple.Node, string, error) {
 	s = strings.TrimSpace(s)
 
 	if strings.HasPrefix(s, "<") {
-		end := strings.Index(s, ">")
-		if end == -1 {
-			return nil, "", errors.New("unclosed IRI")
-		}
-		value := s[1:end]
-		rest := strings.TrimSpace(s[end+1:])
-		return triple.IRI{Value: value}, rest, nil
+		return parseIRI(s)
 	}
 
 	if strings.HasPrefix(s, "_:") {
-		parts := strings.SplitN(s[2:], " ", 2)
-		value := parts[0]
-		rest := ""
-
-		if len(parts) > 1 {
-			rest = parts[1]
-		}
-		return triple.BlankNode{Value: value}, rest, nil
+		return parseBlankNode(s)
 	}
 
 	if strings.HasPrefix(s, `"`) {
-		end := 1
-		for end < len(s) {
-			if s[end] == '"' && s[end-1] != '\\' {
-				break
-			}
-			end++
-		}
-		if end >= len(s) {
-			return nil, "", errors.New("unclosed literal")
-		}
-
-		value := s[1:end]
-		rest := strings.TrimSpace(s[end+1:])
-		lit := triple.Literal{Value: value}
-
-		if strings.HasPrefix(rest, "@") {
-			parts := strings.SplitN(rest[1:], " ", 2)
-			lit.Language = parts[0]
-			if len(parts) > 1 {
-				rest = parts[1]
-			} else {
-				rest = ""
-			}
-		} else if strings.HasPrefix(rest, "^^<") {
-			end := strings.Index(rest, ">")
-			if end == -1 {
-				return nil, "", errors.New("unclosed datatype")
-			}
-			lit.Datatype = rest[3:end]
-			rest = strings.TrimSpace(rest[end+1:])
-		}
-
-		return lit, rest, nil
+		return parseLiteral(s)
 	}
 
 	return nil, "", errors.New("invalid node format")

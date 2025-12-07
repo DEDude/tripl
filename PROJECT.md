@@ -20,12 +20,17 @@ tripl is a standalone RDF triple encoder/decoder that can be used as:
 - Round-trip validation for all formats
 - CLI Phase 1: Create command with prefix support
 - CLI Phase 2: Compact output flag
+- Refactoring: Extract shared parsing logic to common utilities (parser.go)
 
 ### In Progress
-- CLI implementation
-  - Phase 3: Add format conversion commands
+- Code refactoring and optimization
+  - Create prefix resolver type to centralize prefix handling
+  - Add proper error context (line numbers, positions)
+  - Optimize grouping algorithms and reduce allocations
+  - Consolidate duplicate code (formatNode, expandURI, nodeKey)
 
 ### Planned
+- CLI Phase 3: Add format conversion commands
 - File I/O handling
 - Batch conversion support
 
