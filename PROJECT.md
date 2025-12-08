@@ -21,13 +21,14 @@ tripl is a standalone RDF triple encoder/decoder that can be used as:
 - CLI Phase 1: Create command with prefix support
 - CLI Phase 2: Compact output flag
 - Refactoring: Extract shared parsing logic to common utilities (parser.go)
+- Code refactoring and optimization
+  - Created PrefixResolver type to centralize prefix handling
+  - Added proper error context (line numbers, positions)
+  - Optimized grouping algorithms and reduced allocations
+  - Consolidated duplicate code (formatNode, nodeKey) into common.go
 
 ### In Progress
-- Code refactoring and optimization
-  - Create prefix resolver type to centralize prefix handling
-  - Add proper error context (line numbers, positions)
-  - Optimize grouping algorithms and reduce allocations
-  - Consolidate duplicate code (formatNode, expandURI, nodeKey)
+- None
 
 ### Planned
 - CLI Phase 3: Add format conversion commands

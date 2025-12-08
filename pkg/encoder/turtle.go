@@ -7,6 +7,7 @@ import (
 )
 
 func EncodeTurtle(triples []triple.Triple, prefixes map[string]string) string {
+	resolver := NewPrefixResolver(prefixes)
 	var result strings.Builder
 
 	for prefix, uri := range prefixes {
@@ -18,19 +19,19 @@ func EncodeTurtle(triples []triple.Triple, prefixes map[string]string) string {
 	}
 
 	for _, t := range triples {
-		subject := formatTurtleNode(t.Subject, prefixes)
-		predicate := formatTurtleNode(t.Predicate, prefixes)
-		object := formatTurtleNode(t.Object, prefixes)
+		subject := formatTurtleNode(t.Subject, resolver)
+		predicate := formatTurtleNode(t.Predicate, resolver)
+		object := formatTurtleNode(t.Object, resolver)
 		result.WriteString(fmt.Sprintf("%s %s %s .\n", subject, predicate, object))
 	}
 
 	return result.String()
 }
 
-func formatTurtleNode(n triple.Node, prefixes map[string]string) string {
+func formatTurtleNode(n triple.Node, resolver *PrefixResolver) string {
 	switch node := n.(type) {
 	case triple.IRI:
-		shortened := shortenIRI(node.Value, prefixes)
+		shortened := resolver.Shorten(node.Value)
 		if shortened != node.Value {
 			return shortened
 		}
@@ -41,7 +42,7 @@ func formatTurtleNode(n triple.Node, prefixes map[string]string) string {
 			result += "@" + node.Language
 		}
 		if node.Datatype != "" {
-			datatypeShort := shortenIRI(node.Datatype, prefixes)
+			datatypeShort := resolver.Shorten(node.Datatype)
 			if datatypeShort != node.Datatype {
 				result += "^^" + datatypeShort
 			} else {
@@ -56,17 +57,8 @@ func formatTurtleNode(n triple.Node, prefixes map[string]string) string {
 	}
 }
 
-func shortenIRI(iri string, prefixes map[string]string) string {
-	for prefix, uri := range prefixes {
-		if strings.HasPrefix(iri, uri) {
-			localPart := strings.TrimPrefix(iri, uri)
-			return prefix + ":" + localPart
-		}
-	}
-	return iri
-}
-
 func EncodeTurtleCompact(triples []triple.Triple, prefixes map[string]string) string {
+	resolver := NewPrefixResolver(prefixes)
 	var result strings.Builder
 
 	for prefix, uri := range prefixes {
@@ -84,7 +76,7 @@ func EncodeTurtleCompact(triples []triple.Triple, prefixes map[string]string) st
 			result.WriteString("\n")
 		}
 
-		subject := formatTurtleNode(subjectGroup.subject, prefixes)
+		subject := formatTurtleNode(subjectGroup.subject, resolver)
 		result.WriteString(subject)
 
 		for j, predGroup := range subjectGroup.predicates {
@@ -99,7 +91,7 @@ func EncodeTurtleCompact(triples []triple.Triple, prefixes map[string]string) st
 			if iri, ok := predicate.(triple.IRI); ok && iri.Value == rdfType {
 				result.WriteString("a")
 			} else {
-				result.WriteString(formatTurtleNode(predicate, prefixes))
+				result.WriteString(formatTurtleNode(predicate, resolver))
 			}
 
 			for k, obj := range predGroup.objects {
@@ -109,7 +101,7 @@ func EncodeTurtleCompact(triples []triple.Triple, prefixes map[string]string) st
 					result.WriteString(", ")
 				}
 
-				result.WriteString(formatTurtleNode(obj, prefixes))
+				result.WriteString(formatTurtleNode(obj, resolver))
 			}
 		}
 
@@ -132,21 +124,22 @@ type predicateGroup struct {
 }
 
 func groupTriples(triples []triple.Triple) []subjectGroup {
-	subjectMap := make(map[string]*subjectGroup)
-	var orderedSubjects []string
+	subjectMap := make(map[string]*subjectGroup, len(triples)/2)
+	orderedSubjects := make([]string, 0, len(triples)/2)
 
 	for _, t := range triples {
 		subjectKey := nodeKey(t.Subject)
 
-		if _, exists := subjectMap[subjectKey]; !exists {
-			subjectMap[subjectKey] = &subjectGroup{
+		sg, exists := subjectMap[subjectKey]
+		if !exists {
+			sg = &subjectGroup{
 				subject:    t.Subject,
-				predicates: []predicateGroup{},
+				predicates: make([]predicateGroup, 0, 2),
 			}
+			subjectMap[subjectKey] = sg
 			orderedSubjects = append(orderedSubjects, subjectKey)
 		}
 
-		sg := subjectMap[subjectKey]
 		predicateKey := nodeKey(t.Predicate)
 
 		var pg *predicateGroup
@@ -160,7 +153,7 @@ func groupTriples(triples []triple.Triple) []subjectGroup {
 		if pg == nil {
 			sg.predicates = append(sg.predicates, predicateGroup{
 				predicate: t.Predicate,
-				objects:   []triple.Node{},
+				objects:   make([]triple.Node, 0, 1),
 			})
 			pg = &sg.predicates[len(sg.predicates)-1]
 		}
@@ -168,23 +161,10 @@ func groupTriples(triples []triple.Triple) []subjectGroup {
 		pg.objects = append(pg.objects, t.Object)
 	}
 
-	var result []subjectGroup
-	for _, key := range orderedSubjects {
-		result = append(result, *subjectMap[key])
+	result := make([]subjectGroup, len(orderedSubjects))
+	for i, key := range orderedSubjects {
+		result[i] = *subjectMap[key]
 	}
 
 	return result
-}
-
-func nodeKey(n triple.Node) string {
-	switch node := n.(type) {
-	case triple.IRI:
-		return "iri:" + node.Value
-	case triple.Literal:
-		return fmt.Sprintf("lit:%s:%s:%s", node.Value, node.Language, node.Datatype)
-	case triple.BlankNode:
-		return "blank:" + node.Value
-	default:
-		return ""
-	}
 }

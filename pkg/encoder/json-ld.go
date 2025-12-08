@@ -50,23 +50,23 @@ type subjectProperties struct {
 }
 
 func groupBySubject(triples []triple.Triple) []subjectProperties {
-	subjectMap := make(map[string]*subjectProperties)
-	var orderedKeys []string
+	subjectMap := make(map[string]*subjectProperties, len(triples)/2)
+	orderedKeys := make([]string, 0, len(triples)/2)
 
 	for _, t := range triples {
 		subjectKey := nodeKey(t.Subject)
 
-		if _, exists := subjectMap[subjectKey]; !exists {
-			subjectMap[subjectKey] = &subjectProperties{
+		sp, exists := subjectMap[subjectKey]
+		if !exists {
+			sp = &subjectProperties{
 				subject:    t.Subject,
-				properties: make(map[string][]triple.Node),
+				properties: make(map[string][]triple.Node, 2),
 			}
+			subjectMap[subjectKey] = sp
 			orderedKeys = append(orderedKeys, subjectKey)
 		}
 
-		sp := subjectMap[subjectKey]
 		predicateIRI, ok := t.Predicate.(triple.IRI)
-
 		if !ok {
 			continue
 		}
@@ -74,9 +74,9 @@ func groupBySubject(triples []triple.Triple) []subjectProperties {
 		sp.properties[predicateIRI.Value] = append(sp.properties[predicateIRI.Value], t.Object)
 	}
 
-	var result []subjectProperties
-	for _, key := range orderedKeys {
-		result = append(result, *subjectMap[key])
+	result := make([]subjectProperties, len(orderedKeys))
+	for i, key := range orderedKeys {
+		result[i] = *subjectMap[key]
 	}
 
 	return result

@@ -53,8 +53,9 @@ func createCommand() {
 	}
 
 	prefixes := parsePrefixes(*prefixFlag)
-	subjectIRI := expandURI(*subject, prefixes)
-	predicateIRI := expandURI(*predicate, prefixes)
+	resolver := encoder.NewPrefixResolver(prefixes)
+	subjectIRI := resolver.Expand(*subject)
+	predicateIRI := resolver.Expand(*predicate)
 
 	t := triple.Triple{
 		Subject:   triple.IRI{Value: subjectIRI},
@@ -68,11 +69,11 @@ func createCommand() {
 			lit.Language = *language
 		}
 		if *datatype != "" {
-			lit.Datatype = expandURI(*datatype, prefixes)
+			lit.Datatype = resolver.Expand(*datatype)
 		}
 		t.Object = lit
 	case "iri":
-		t.Object = triple.IRI{Value: expandURI(*object, prefixes)}
+		t.Object = triple.IRI{Value: resolver.Expand(*object)}
 	case "blank":
 		t.Object = triple.BlankNode{Value: *object}
 	default:
@@ -128,24 +129,6 @@ func parsePrefixes(prefixStr string) map[string]string {
 	}
 
 	return prefixes
-}
-
-func expandURI(uri string, prefixes map[string]string) string {
-	if !strings.Contains(uri, ":") {
-		return uri
-	}
-
-	parts := strings.SplitN(uri, ":", 2)
-	if len(parts) == 2 {
-		prefix := parts[0]
-		localPart := parts[1]
-
-		if namespace, ok := prefixes[prefix]; ok {
-			return namespace + localPart
-		}
-	}
-
-	return uri
 }
 
 func printUsage() {

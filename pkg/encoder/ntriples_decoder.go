@@ -1,36 +1,37 @@
 package encoder
 
 import (
-	"errors"
+	"fmt"
 	"github.com/DeDude/tripl/pkg/triple"
 	"strings"
 )
 
 func DecodeNTriple(line string) (triple.Triple, error) {
+	ctx := &parseContext{line: 1, column: 1, input: line}
 	line = strings.TrimSpace(line)
 
 	if line == "" || strings.HasPrefix(line, "#") {
-		return triple.Triple{}, errors.New("empty or comment line")
+		return triple.Triple{}, ctx.error("empty or comment line")
 	}
 
 	if !strings.HasSuffix(line, ".") {
-		return triple.Triple{}, errors.New("line must end with .")
+		return triple.Triple{}, ctx.error("line must end with .")
 	}
 
 	line = strings.TrimSuffix(line, ".")
 	line = strings.TrimSpace(line)
 
-	subject, rest, err := parseNode(line)
+	subject, rest, err := parseNodeWithContext(line, ctx)
 	if err != nil {
 		return triple.Triple{}, err
 	}
 
-	predicate, rest, err := parseNode(rest)
+	predicate, rest, err := parseNodeWithContext(rest, ctx)
 	if err != nil {
 		return triple.Triple{}, err
 	}
 
-	object, _, err := parseNode(rest)
+	object, _, err := parseNodeWithContext(rest, ctx)
 	if err != nil {
 		return triple.Triple{}, err
 	}
@@ -42,20 +43,20 @@ func DecodeNTriple(line string) (triple.Triple, error) {
 	}, nil
 }
 
-func parseNode(s string) (triple.Node, string, error) {
+func parseNodeWithContext(s string, ctx *parseContext) (triple.Node, string, error) {
 	s = strings.TrimSpace(s)
 
 	if strings.HasPrefix(s, "<") {
-		return parseIRI(s)
+		return parseIRIWithContext(s, ctx)
 	}
 
 	if strings.HasPrefix(s, "_:") {
-		return parseBlankNode(s)
+		return parseBlankNodeWithContext(s, ctx)
 	}
 
 	if strings.HasPrefix(s, `"`) {
-		return parseLiteral(s)
+		return parseLiteralWithContext(s, ctx)
 	}
 
-	return nil, "", errors.New("invalid node format")
+	return nil, "", ctx.error("invalid node format")
 }
