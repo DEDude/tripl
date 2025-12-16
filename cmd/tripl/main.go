@@ -46,6 +46,8 @@ func createCommand() {
 	datatype := createFlags.String("datatype", "", "Datatype IRI for literal (optional)")
 	prefixFlag := createFlags.String("prefix", "", "Prefix definitions (format: prefix=uri, prefix2=uri2)")
 	compact := createFlags.Bool("compact", false, "Use compact output format (for turtle and jsonld)")
+	outputPath := createFlags.String("output", "", "File path to write output (default: stdout)")
+	force := createFlags.Bool("force", false, "Allow overwriting existing output file")
 
 	createFlags.Parse(os.Args[2:])
 
@@ -113,7 +115,10 @@ func createCommand() {
 		os.Exit(1)
 	}
 
-	fmt.Print(output)
+	if err := writeOutput(output, *outputPath, *force); err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing output: %v\n", err)
+		os.Exit(1)
+	}
 }
 
 func convertCommand() {
@@ -123,6 +128,9 @@ func convertCommand() {
 	toFormat := convertFlags.String("to", "", "Output format: ntriples, turtle, jsonld")
 	compact := convertFlags.Bool("compact", false, "Use compact output format (turtle/jsonld)")
 	prefixFlag := convertFlags.String("prefix", "", "Prefix definitions for output (format: prefix=uri, prefix2=uri2)")
+	inputPath := convertFlags.String("input", "", "File path to read input from (default: stdin)")
+	outputPath := convertFlags.String("output", "", "File path to write output (default: stdout)")
+	force := convertFlags.Bool("force", false, "Allow overwriting existing output file")
 
 	convertFlags.Parse(os.Args[2:])
 
@@ -132,15 +140,15 @@ func convertCommand() {
 		os.Exit(1)
 	}
 
-	inputBytes, err := io.ReadAll(os.Stdin)
+	inputBytes, err := readInput(*inputPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading stdin: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error reading input: %v\n", err)
 		os.Exit(1)
 	}
 
 	input := strings.TrimSpace(string(inputBytes))
 	if input == "" {
-		fmt.Fprintln(os.Stderr, "Error: no input provided on stdin")
+		fmt.Fprintln(os.Stderr, "Error: no input provided")
 		os.Exit(1)
 	}
 
@@ -165,7 +173,10 @@ func convertCommand() {
 		os.Exit(1)
 	}
 
-	fmt.Print(output)
+	if err := writeOutput(output, *outputPath, *force); err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing output: %v\n", err)
+		os.Exit(1)
+	}
 }
 
 func decodeTriples(format, data string) ([]triple.Triple, map[string]string, error) {
@@ -240,6 +251,30 @@ func parsePrefixes(prefixStr string) map[string]string {
 	return prefixes
 }
 
+func readInput(path string) ([]byte, error) {
+	if path == "" {
+		return io.ReadAll(os.Stdin)
+	}
+	return os.ReadFile(path)
+}
+
+func writeOutput(data string, path string, force bool) error {
+	if path == "" {
+		fmt.Print(data)
+		return nil
+	}
+
+	if !force {
+		if _, err := os.Stat(path); err == nil {
+			return fmt.Errorf("output file %s exists (use --force to overwrite)", path)
+		} else if !os.IsNotExist(err) {
+			return err
+		}
+	}
+
+	return os.WriteFile(path, []byte(data), 0644)
+}
+
 func printUsage() {
 	fmt.Println("tripl - RDF triple encoder/decoder")
 	fmt.Println()
@@ -262,12 +297,17 @@ func printUsage() {
 	fmt.Println("  --datatype string      Datatype IRI for literal")
 	fmt.Println("  --prefix string        Prefix definitions (format: ex=http://example.org/)")
 	fmt.Println("  --compact              Use compact output format (turtle: semicolons/commas, jsonld: @context)")
+	fmt.Println("  --output string        File path to write output (default: stdout)")
+	fmt.Println("  --force                Allow overwriting existing output file")
 	fmt.Println()
 	fmt.Println("Convert flags:")
 	fmt.Println("  --from string          Input format: ntriples, turtle, jsonld (required)")
 	fmt.Println("  --to string            Output format: ntriples, turtle, jsonld (required)")
 	fmt.Println("  --prefix string        Prefix definitions for output (format: ex=http://example.org/)")
 	fmt.Println("  --compact              Use compact output format (turtle/jsonld)")
+	fmt.Println("  --input string         File path to read input (default: stdin)")
+	fmt.Println("  --output string        File path to write output (default: stdout)")
+	fmt.Println("  --force                Allow overwriting existing output file")
 	fmt.Println()
 	fmt.Println("Examples:")
 	fmt.Println("  tripl create --subject http://example.org/note1 --predicate http://example.org/title --object \"My Note\"")
