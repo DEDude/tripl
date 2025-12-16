@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -21,6 +22,8 @@ func main() {
 	switch command {
 	case "create":
 		createCommand()
+	case "convert":
+		convertCommand()
 	case "help":
 		printUsage()
 	default:
@@ -113,6 +116,112 @@ func createCommand() {
 	fmt.Print(output)
 }
 
+func convertCommand() {
+	convertFlags := flag.NewFlagSet("convert", flag.ExitOnError)
+
+	fromFormat := convertFlags.String("from", "", "Input format: ntriples, turtle, jsonld")
+	toFormat := convertFlags.String("to", "", "Output format: ntriples, turtle, jsonld")
+	compact := convertFlags.Bool("compact", false, "Use compact output format (turtle/jsonld)")
+	prefixFlag := convertFlags.String("prefix", "", "Prefix definitions for output (format: prefix=uri, prefix2=uri2)")
+
+	convertFlags.Parse(os.Args[2:])
+
+	if *fromFormat == "" || *toFormat == "" {
+		fmt.Fprintln(os.Stderr, "Error: --from and --to are required")
+		convertFlags.Usage()
+		os.Exit(1)
+	}
+
+	inputBytes, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error reading stdin: %v\n", err)
+		os.Exit(1)
+	}
+
+	input := strings.TrimSpace(string(inputBytes))
+	if input == "" {
+		fmt.Fprintln(os.Stderr, "Error: no input provided on stdin")
+		os.Exit(1)
+	}
+
+	userPrefixes := parsePrefixes(*prefixFlag)
+
+	triples, detectedPrefixes, err := decodeTriples(strings.ToLower(*fromFormat), input)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error decoding input: %v\n", err)
+		os.Exit(1)
+	}
+
+	if detectedPrefixes == nil {
+		detectedPrefixes = map[string]string{}
+	}
+	for k, v := range userPrefixes {
+		detectedPrefixes[k] = v
+	}
+
+	output, err := encodeTriples(triples, strings.ToLower(*toFormat), *compact, detectedPrefixes)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error encoding output: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Print(output)
+}
+
+func decodeTriples(format, data string) ([]triple.Triple, map[string]string, error) {
+	switch format {
+	case "ntriples", "nt":
+		var triples []triple.Triple
+		lines := strings.Split(data, "\n")
+		for _, line := range lines {
+			trimmed := strings.TrimSpace(line)
+			if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+				continue
+			}
+			t, err := encoder.DecodeNTriple(trimmed)
+			if err != nil {
+				return nil, nil, fmt.Errorf("line %q: %w", trimmed, err)
+			}
+			triples = append(triples, t)
+		}
+		return triples, map[string]string{}, nil
+	case "turtle", "ttl":
+		triples, prefixes, err := encoder.DecodeTurtle(data)
+		return triples, prefixes, err
+	case "jsonld":
+		triples, err := encoder.DecodeJSONLD(data)
+		return triples, map[string]string{}, err
+	default:
+		return nil, nil, fmt.Errorf("unsupported input format: %s", format)
+	}
+}
+
+func encodeTriples(triples []triple.Triple, format string, compact bool, prefixes map[string]string) (string, error) {
+	switch format {
+	case "ntriples", "nt":
+		var b strings.Builder
+		for i, t := range triples {
+			if i > 0 {
+				b.WriteString("\n")
+			}
+			b.WriteString(encoder.EncodeNTriple(t))
+		}
+		return b.String(), nil
+	case "turtle", "ttl":
+		if compact {
+			return encoder.EncodeTurtleCompact(triples, prefixes), nil
+		}
+		return encoder.EncodeTurtle(triples, prefixes), nil
+	case "jsonld":
+		if compact {
+			return encoder.EncodeJSONLDCompact(triples, prefixes)
+		}
+		return encoder.EncodeJSONLD(triples)
+	default:
+		return "", fmt.Errorf("unsupported output format: %s", format)
+	}
+}
+
 func parsePrefixes(prefixStr string) map[string]string {
 	prefixes := make(map[string]string)
 
@@ -136,9 +245,11 @@ func printUsage() {
 	fmt.Println()
 	fmt.Println("Usage:")
 	fmt.Println("  tripl create [flags]")
+	fmt.Println("  tripl convert [flags] < input")
 	fmt.Println()
 	fmt.Println("Commands:")
 	fmt.Println("  create    Create a triple and output in specified format")
+	fmt.Println("  convert   Convert triples between formats (reads from stdin)")
 	fmt.Println("  help      Show this help message")
 	fmt.Println()
 	fmt.Println("Create flags:")
@@ -152,9 +263,16 @@ func printUsage() {
 	fmt.Println("  --prefix string        Prefix definitions (format: ex=http://example.org/)")
 	fmt.Println("  --compact              Use compact output format (turtle: semicolons/commas, jsonld: @context)")
 	fmt.Println()
+	fmt.Println("Convert flags:")
+	fmt.Println("  --from string          Input format: ntriples, turtle, jsonld (required)")
+	fmt.Println("  --to string            Output format: ntriples, turtle, jsonld (required)")
+	fmt.Println("  --prefix string        Prefix definitions for output (format: ex=http://example.org/)")
+	fmt.Println("  --compact              Use compact output format (turtle/jsonld)")
+	fmt.Println()
 	fmt.Println("Examples:")
 	fmt.Println("  tripl create --subject http://example.org/note1 --predicate http://example.org/title --object \"My Note\"")
 	fmt.Println("  tripl create --prefix ex=http://example.org/ --subject ex:note1 --predicate ex:title --object \"My Note\" --format turtle")
 	fmt.Println("  tripl create --prefix ex=http://example.org/ --subject ex:note1 --predicate ex:title --object \"My Note\" --format turtle --compact")
+	fmt.Println("  cat input.ttl | tripl convert --from turtle --to jsonld")
+	fmt.Println("  cat input.nt  | tripl convert --from ntriples --to turtle --compact --prefix ex=http://example.org/")
 }
-

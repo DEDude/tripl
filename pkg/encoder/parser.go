@@ -8,12 +8,12 @@ import (
 
 func parseIRI(s string) (triple.IRI, string, error) {
 	if !strings.HasPrefix(s, "<") {
-		return triple.IRI{}, s, &parseContext{}.error("expected IRI to start with <")
+		return triple.IRI{}, s, (&parseContext{}).error("expected IRI to start with <")
 	}
 
 	end := strings.Index(s, ">")
 	if end == -1 {
-		return triple.IRI{}, "", &parseContext{}.error("unclosed IRI")
+		return triple.IRI{}, "", (&parseContext{}).error("unclosed IRI")
 	}
 
 	value := s[1:end]
@@ -23,7 +23,7 @@ func parseIRI(s string) (triple.IRI, string, error) {
 
 func parseBlankNode(s string) (triple.BlankNode, string, error) {
 	if !strings.HasPrefix(s, "_:") {
-		return triple.BlankNode{}, s, &parseContext{}.error("expected blank node to start with _:")
+		return triple.BlankNode{}, s, (&parseContext{}).error("expected blank node to start with _:")
 	}
 
 	parts := strings.SplitN(s[2:], " ", 2)
@@ -38,7 +38,7 @@ func parseBlankNode(s string) (triple.BlankNode, string, error) {
 
 func parseLiteral(s string) (triple.Literal, string, error) {
 	if !strings.HasPrefix(s, `"`) {
-		return triple.Literal{}, s, &parseContext{}.error("expected literal to start with \"")
+		return triple.Literal{}, s, (&parseContext{}).error("expected literal to start with \"")
 	}
 
 	end := 1
@@ -50,7 +50,7 @@ func parseLiteral(s string) (triple.Literal, string, error) {
 	}
 
 	if end >= len(s) {
-		return triple.Literal{}, "", &parseContext{}.error("unclosed literal")
+		return triple.Literal{}, "", (&parseContext{}).error("unclosed literal")
 	}
 
 	value := s[1:end]
@@ -72,7 +72,7 @@ func parseLiteral(s string) (triple.Literal, string, error) {
 	if strings.HasPrefix(rest, "^^<") {
 		end := strings.Index(rest, ">")
 		if end == -1 {
-			return triple.Literal{}, "", &parseContext{}.error("unclosed datatype")
+			return triple.Literal{}, "", (&parseContext{}).error("unclosed datatype")
 		}
 		lit.Datatype = rest[3:end]
 		rest = strings.TrimSpace(rest[end+1:])

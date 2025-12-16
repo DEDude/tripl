@@ -1,7 +1,6 @@
 package encoder
 
 import (
-	"fmt"
 	"github.com/DeDude/tripl/pkg/triple"
 	"strings"
 )
