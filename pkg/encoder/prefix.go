@@ -17,7 +17,7 @@ func (pr *PrefixResolver) Expand(uri string) string {
 
 	parts := strings.SplitN(uri, ":", 2)
 	if len(parts) == 2 {
-		if namespace, ok := pr.prefixes[parts[0]] ; ok {
+		if namespace, ok := pr.prefixes[parts[0]]; ok {
 			return namespace + parts[1]
 		}
 	}
