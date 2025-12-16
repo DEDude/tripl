@@ -1,9 +1,0 @@
-./common.go
-./json-ld.go
-./json-ld_decoder.go
-./ntriples.go
-./ntriples_decoder.go
-./parser.go
-./prefix.go
-./turtle.go
-./turtle_decoder.go
