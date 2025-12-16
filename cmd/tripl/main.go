@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/DeDude/tripl/pkg/encoder"
@@ -128,6 +129,7 @@ func convertCommand() {
 	toFormat := convertFlags.String("to", "", "Output format: ntriples, turtle, jsonld")
 	compact := convertFlags.Bool("compact", false, "Use compact output format (turtle/jsonld)")
 	prefixFlag := convertFlags.String("prefix", "", "Prefix definitions for output (format: prefix=uri, prefix2=uri2)")
+	batch := convertFlags.Bool("batch", false, "Convert all files in input directory matching the source format extension")
 	inputPath := convertFlags.String("input", "", "File path to read input from (default: stdin)")
 	outputPath := convertFlags.String("output", "", "File path to write output (default: stdout)")
 	force := convertFlags.Bool("force", false, "Allow overwriting existing output file")
@@ -138,6 +140,20 @@ func convertCommand() {
 		fmt.Fprintln(os.Stderr, "Error: --from and --to are required")
 		convertFlags.Usage()
 		os.Exit(1)
+	}
+
+	userPrefixes := parsePrefixes(*prefixFlag)
+
+	if *batch {
+		if *inputPath == "" {
+			fmt.Fprintln(os.Stderr, "Error: --input directory is required in batch mode")
+			os.Exit(1)
+		}
+		if err := convertBatch(strings.ToLower(*fromFormat), strings.ToLower(*toFormat), *compact, userPrefixes, *inputPath, *outputPath, *force); err != nil {
+			fmt.Fprintf(os.Stderr, "Error converting batch: %v\n", err)
+			os.Exit(1)
+		}
+		return
 	}
 
 	inputBytes, err := readInput(*inputPath)
@@ -151,8 +167,6 @@ func convertCommand() {
 		fmt.Fprintln(os.Stderr, "Error: no input provided")
 		os.Exit(1)
 	}
-
-	userPrefixes := parsePrefixes(*prefixFlag)
 
 	triples, detectedPrefixes, err := decodeTriples(strings.ToLower(*fromFormat), input)
 	if err != nil {
@@ -275,6 +289,171 @@ func writeOutput(data string, path string, force bool) error {
 	return os.WriteFile(path, []byte(data), 0644)
 }
 
+func convertBatch(fromFormat, toFormat string, compact bool, userPrefixes map[string]string, inputDir, outputDir string, force bool) error {
+	fromExt, err := formatExtension(fromFormat)
+	if err != nil {
+		return err
+	}
+	toExt, err := formatExtension(toFormat)
+	if err != nil {
+		return err
+	}
+
+	if outputDir != "" {
+		if err := ensureDir(outputDir); err != nil {
+			return err
+		}
+	}
+
+	files, err := collectBatchInputs(inputDir)
+	if err != nil {
+		return err
+	}
+
+	processed := 0
+
+	for _, inPath := range files {
+		if !strings.EqualFold(filepath.Ext(inPath), fromExt) {
+			continue
+		}
+
+		inputBytes, err := os.ReadFile(inPath)
+		if err != nil {
+			return fmt.Errorf("reading %s: %w", inPath, err)
+		}
+
+		input := strings.TrimSpace(string(inputBytes))
+		if input == "" {
+			return fmt.Errorf("%s is empty", inPath)
+		}
+
+		triples, detectedPrefixes, err := decodeTriples(fromFormat, input)
+		if err != nil {
+			return fmt.Errorf("decoding %s: %w", inPath, err)
+		}
+
+		if detectedPrefixes == nil {
+			detectedPrefixes = map[string]string{}
+		}
+		for k, v := range userPrefixes {
+			detectedPrefixes[k] = v
+		}
+
+		output, err := encodeTriples(triples, toFormat, compact, detectedPrefixes)
+		if err != nil {
+			return fmt.Errorf("encoding %s: %w", inPath, err)
+		}
+
+		base := strings.TrimSuffix(filepath.Base(inPath), filepath.Ext(inPath))
+		targetDir := outputDir
+		if targetDir == "" {
+			targetDir = filepath.Dir(inPath)
+		}
+		if err := ensureDir(targetDir); err != nil {
+			return err
+		}
+
+		outPath := filepath.Join(targetDir, base+toExt)
+
+		if !force {
+			if _, err := os.Stat(outPath); err == nil {
+				return fmt.Errorf("output file %s exists (use --force to overwrite)", outPath)
+			} else if err != nil && !os.IsNotExist(err) {
+				return err
+			}
+		}
+
+		if err := os.WriteFile(outPath, []byte(output), 0644); err != nil {
+			return fmt.Errorf("writing %s: %w", outPath, err)
+		}
+
+		processed++
+	}
+
+	if processed == 0 {
+		return fmt.Errorf("no files with extension %s found in %s", fromExt, inputDir)
+	}
+
+	return nil
+}
+
+func formatExtension(format string) (string, error) {
+	switch format {
+	case "ntriples", "nt":
+		return ".nt", nil
+	case "turtle", "ttl":
+		return ".ttl", nil
+	case "jsonld":
+		return ".jsonld", nil
+	}
+	return "", fmt.Errorf("unsupported format: %s", format)
+}
+
+func ensureDir(path string) error {
+	info, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return os.MkdirAll(path, 0755)
+	}
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("output path %s exists and is not a directory", path)
+	}
+	return nil
+}
+
+func collectBatchInputs(inputPattern string) ([]string, error) {
+	if containsGlob(inputPattern) {
+		matches, err := filepath.Glob(inputPattern)
+		if err != nil {
+			return nil, err
+		}
+
+		var files []string
+		for _, m := range matches {
+			info, err := os.Stat(m)
+			if err != nil {
+				return nil, err
+			}
+			if info.IsDir() {
+				continue
+			}
+			files = append(files, m)
+		}
+		if len(files) == 0 {
+			return nil, fmt.Errorf("no files match glob %s", inputPattern)
+		}
+		return files, nil
+	}
+
+	info, err := os.Stat(inputPattern)
+	if err != nil {
+		return nil, err
+	}
+	if !info.IsDir() {
+		return nil, fmt.Errorf("batch mode requires --input to be a directory or glob pattern")
+	}
+
+	entries, err := os.ReadDir(inputPattern)
+	if err != nil {
+		return nil, err
+	}
+
+	var files []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		files = append(files, filepath.Join(inputPattern, entry.Name()))
+	}
+	return files, nil
+}
+
+func containsGlob(path string) bool {
+	return strings.ContainsAny(path, "*?[")
+}
+
 func printUsage() {
 	fmt.Println("tripl - RDF triple encoder/decoder")
 	fmt.Println()
@@ -305,8 +484,9 @@ func printUsage() {
 	fmt.Println("  --to string            Output format: ntriples, turtle, jsonld (required)")
 	fmt.Println("  --prefix string        Prefix definitions for output (format: ex=http://example.org/)")
 	fmt.Println("  --compact              Use compact output format (turtle/jsonld)")
-	fmt.Println("  --input string         File path to read input (default: stdin)")
-	fmt.Println("  --output string        File path to write output (default: stdout)")
+	fmt.Println("  --batch                Convert all files in an input directory (requires --input dir)")
+	fmt.Println("  --input string         File path to read input (default: stdin) or directory in batch mode")
+	fmt.Println("  --output string        File path to write output (default: stdout) or directory in batch mode")
 	fmt.Println("  --force                Allow overwriting existing output file")
 	fmt.Println()
 	fmt.Println("Examples:")
